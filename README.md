@@ -30,7 +30,9 @@ Ferrara Justin
 
 ### PKCS v1.5 padding pour signature RSA
 Le padding PKCS v1.5 est donné par :
+
 $$ 00 || 01 || FF ... FF || ASN.1 || Hash(m) $$
+
 Où :
 - `ASN.1` est un identifiant pour définir la fonction de hashage utilisée
 - `Hash(m)` est le hash du message `m`
@@ -38,17 +40,22 @@ Où :
 ### RSA Signatures avec padding PKCS v1.5
 
 La signature `s` RSA d'un message `m` sans padding est donnée par :
+
 $$ N = pq $$
 $$ \phi(N) = (p-1)(q-1) $$
 $$ d = e^{-1} \mod \phi(N) $$
 $$ s = f(m)^d \mod N $$
 
 La clé privée est donnée par :
+
 $$ (N, d) $$
+
 La clé publique est donnée par :
+
 $$ (N, e) $$
 
 La vérification de cette signature est donnée par :
+
 $$ f(m') = s^e \mod N $$
 $$ f(m) = f(m') $$
 
@@ -63,12 +70,14 @@ $$ x \mod q \neq x' mod q $$
 Avec `x` la signature correcte et `x'` la signature incorrecte par exemple.
 
 On peut donc déduire que :
+
 $$ (x - x') \mod p = 0 $$
 $$ (x - x') \mod q \neq 0 $$
 $$ (x - x') \mod n = k \cdot p \mod n \quad \text{avec} \quad k \in \mathbb{Z} $$
 
 
 Avec ces équations, nous pouvons donc déduire `p` de la manière suivante :
+
 $$ p = \gcd(N, s'-s) $$
 $$ p = \gcd(N, m'-m) $$
 $$ p = \gcd(N, s'^e - m) $$
@@ -79,20 +88,24 @@ Avec s' la signature incorrecte, s la signature correcte, m' le message incorrec
 
 ### PACD (Partial Approximate Common Divisors)
 PACD est une généralisation du PGDC :
+
 $$ N_i = p \cdot q_i $$
 
 Avec `p` le facteur commun et `q_i` un diviseur commun approximatif. ???
 
 Pour pouvoir résoudre le problème PACD, il faut que les diviseurs communs approximatifs soient suffisamment proches pour que l'algorithme LLL puisse les trouver. Nous pouvons donc essayer de poser les équations suivantes :
+
 $$ N_0 = p \cdot q_0 $$
 $$ N_1 = p \cdot q_1 + r_1 $$
 
 Avec `r_1` une erreur de calcul :
+
 $$ |r_1| < 2^{log_2(r)} $$
 
 Avec `r` l'espace de la fonction de hashage. ???
 
 Comme nous n'avons pas `N1`, nous pouvons essayer de le trouver en utilisant le théorème des restes chinois :
+
 $$ (m' - m) \mod N = k \cdot p$$
 $$ (h(m') - h(m)) \mod N = k \cdot p$$
 
@@ -105,6 +118,7 @@ Avec `h` une erreur de calcul. ???
 
 ### Lattice
 Nous pouvons poser cette fonction qui à une petite racine mod p en `x = r_1`
+
 $$ f(x) = N_1 - x $$
 
 On peut ensuite en dériver des équations en utilisant la formule suivante :
@@ -128,12 +142,14 @@ $$
 Avec `r` l'espace de la fonction de hashage.
 
 En utilisant l'algorithme LLL, nous pouvons ensuite poser : ???
+
 $$ g(y) = 0 $$
 $$ y = r_1 $$
 
 Avec `r_1` une petite racine mod p.
 
 Comme nous connaissons `r_1`, nous pouvons donc déduire `p`:
+
 $$ p = \gcd(N_0, N_1 - r_1) $$
 
 
