@@ -1,43 +1,78 @@
-# SSE - Passive SSH Key Compromise via Lattices
-## Authors
-Ferrara Justin
+# SSE - Passive SSH Key Compromise via Lattices - Ferrara Justin
 
-## Notes
-- get les clés de signature RSA si une faute dans la signature
-- de base pas possible pour SSH car D-H
-- Implem avec théorème des restes chinois non protégé
-- Besoins d'une signature fausse, public key, calc un GCD
-- RSA PKCS v1.5
-- TLS 1.2 handshake avec signature RSA en clair -> écoute passive possible
-- TLS 1.3 handshake chiffré après le D-H -> écoute active nécessaire
-- Possible même si partie du message inconnu
+## Prérequis pour que l'attaque réussisse
+- Posséder une partie d'un message avec sa signature valide
+- Posséder une partie d'un message avec sa signature invalide$
+- Posséder la clé publique correspondante
+- L'algorithe étudié ici concerne les signature RSA PKCS v1.5
+- Les signatures sont réalisées en utilisant le théorème des restes chinois
+- L'erreur dans la signature provient des opérations faite dans le monde des tuples (théorème des restes chinois)
 
-### SSH
-- SSH handshake pour décider de l'algo et ensuite D-H, auth faite avec signature du session identifier
-- Signature avec RSA, DSA, ECDSA, EdDSA, ...
-- Si trouve la clé privée, peut faire un man in the middle mais pas déchiffrer le traffic ???
-- Signe un message qui est le hash du session identifier qui contient le D-H, id client et id serveur
-- On connait pas le D-H mais uniquement la signature
-- Peut ensuite get le password en faisant une attaque active
-- Password authentication / Public key authentication (MitM pas possible ???)
-- SSH agent forwarding ???
-- Ne voit pas le message car utilise D-H pour le chiffrer
-
-### IPsec
-- Internet Key Exchange (IKE) cipher suite, key exchange, authentification, ...
-- IKEv1 et IKEv2
-- ... ???
-
-### PKCS v1.5 padding pour signature RSA
+> Pour faire cette attaque sur TLS, il faut faire une écoute passive sur TLS 1.2 et une attaque active sur TLS 1.3.
+## SSH
+### Authentification et échange de clés
+#### Authentification du serveur
+- Les serveurs SSH sont identifiés par leurs clés publiques.
+- L'échange commence par une négociation de chiffrement suivie d'un échange de clés Diffie-Hellman.
+- Le serveur s'authentifie en signant le session identifier avec sa clé privée, vérifié ensuite par le client.
+- Le session identifier contient le D-H, l'ID du client et l'ID du serveur.
+#### Authentification du client
+- Se déroule après l'établissement du canal chiffré.
+- **Méthodes courantes :**
+	- **Mot de passe** : envoyé en clair dans le canal chiffré.
+	- **Clé publique** : le client signe un identifiant de session avec sa clé privée.
+### Algorithmes cryptographiques
+- Échange de clés : Diffie-Hellman, Elliptic Curve Diffie-Hellman (ECDH), RSA.
+- Signatures : DSA, RSA, ECDSA, Ed25519.
+- OpenSSH 8.8 (septembre 2021) désactive par défaut `ssh-rsa` (SHA-1) mais supporte `rsa-sha2-256` et `rsa-sha2-512`.
+### Sécurité et attaques possibles
+#### Compromission des clés de signatures
+- Ne permet pas de déchiffrer les connexions de manière passives mais peut permettre une attaque active (Man-in-the-middle).
+- Un attaquant peut usurper l'identité du serveur et établir une connexion chiffrée avec le client pour obtenir son mot de passe par exemple.
+#### Exploitation des méthodes d'authentification
+- **Mot de passe** : un attaquant MITM peut intercepter et relayer les identifiants.
+- **Clé publique** : plus sécurisé car ne permet pas un Man-in-the-middle. Permet tout de même de connaitre les commandes que le client envoie au serveur.
+#### SSH Agent Forwarding ???
+- Permet de transmettre l'authentification via un agent SSH distant.
+- Peut être exploité par un attaquant pour se connecter à d'autres serveurs avec les clés de l'agent.
+- OpenSSH 8.9 (février 2022) introduit des restrictions pour limiter ce risque, mais leur adoption reste limitée.
+## IPsec
+IPsec est un ensemble de protocoles (RFC 2408, 2409, 7296) visant à garantir la confidentialité, l'intégrité des données et l'authentification des sources des paquets IP. Il est beaucoup utilisé par les VPN et repose sur le protocole Internet Key Exchange (IKE) pour négocier les algorithmes utilisés, définir comment dériver les clés, etc.
+### IKE : Versions et Fonctionnement
+IKE existe en deux versions : **IKEv1** et **IKEv2**.
+- **Établissement d'une Security Association (SA)** : choix des suites de chiffrement et échange initial de clés Diffie-Hellman.
+- **Authentification mutuelle** entre l'initiateur et le répondeur via différentes méthodes (signatures, clés pré-partagées, etc.).
+### IKEv1
+IKEv1 prend en charge trois modes d'authentification :
+- Signatures numériques
+- Chiffrement de clé publique
+- Clé pré-partagée (PSK)  
+Il y a deux modes de communication :
+1. **Main Mode** : Plus sécurisé, toutes les communications sont chiffrées après l'échange initial.
+2. **Aggressive Mode** : Échange réduit mais moins sécurisé (les signatures sont envoyées en clair).
+#### Vulnérabilités dans IKEv1 ???
+- **Attaque passive sur Aggressive Mode** : Un attaquant peut capturer une signature envoyée en clair en écoutant passivement la communication.
+- **Format non standard de signature RSA** : RFC 2409 impose une variation du format PKCS#1 v1.5, supprimant l'OID du hachage car il est inclus dans la SA.
+- **Compromission des clés de signature** : Un attaquant obtenant la clé privée de signature pourrait usurper cette identité. Pour pouvoir faire une attaque Man-in-the-middle, il faut compromettre la clé privée des deux parties à cause du D-H qui est signé.
+### IKEv2
+IKEv2 n'est pas compatible avec IKEv1 :
+- Toutes les signatures sont chiffrées et transmises dans l’AUTH payload après l'établissement de la SA.
+- Extensible Authentication Protocol (EAP) permet d'obtenir de manière active une signature de l'host distant sans s'authentifier.
+- L’authentification par clés cryptographique peut ne concerner qu'un participant en fonction des modes utilisés.
+#### Vulnérabilités dans IKEv2
+- **Compromission des clés de signature** : Un attaquant obtenant la clé privée de signature pourrait usurper cette identité. Pour pouvoir faire une attaque Man-in-the-middle, il faut compromettre la clé privée des deux parties.
+- **Attaques sur l’authentification par clé pré-partagée (PSK)** : Si la PSK est faible (mot de passe faible), un attaquant peut mener une attaque par dictionnaire hors ligne et ensuite, avec la clé privé de signature de l'autre partie, faire un Man-in-the-middle complet.
+- **Attaque MITM avec EAP** : Certains modes EAP (comme **EAP-MS-CHAPv2**) permettent une attaque Man-in-the-middle complète, en attaquant le hash du mot de passe utilisé par une attaque hors ligne.
+## PKCS v1.5 padding pour signature RSA
 Le padding PKCS v1.5 est donné par :
 
 $$ 00 || 01 || FF ... FF || ASN.1 || Hash(m) $$
 
 Où :
-- `ASN.1` est un identifiant pour définir la fonction de hashage utilisée
+- `ASN.1` est un identifiant pour définir la fonction de hachage utilisée
 - `Hash(m)` est le hash du message `m`
 
-### RSA Signatures avec padding PKCS v1.5
+## RSA Signatures avec padding PKCS v1.5
 
 La signature `s` RSA d'un message `m` sans padding est donnée par :
 
@@ -46,26 +81,25 @@ $$ \phi(N) = (p-1)(q-1) $$
 $$ d = e^{-1} \mod \phi(N) $$
 $$ s = f(m)^d \mod N $$
 
-La clé privée est donnée par :
-
-$$ (N, d) $$
-
 La clé publique est donnée par :
 
 $$ (N, e) $$
+La clé privée est donnée par :
+
+$$ (N, d) $$
 
 La vérification de cette signature est donnée par :
 
 $$ f(m') = s^e \mod N $$
 $$ f(m) = f(m') $$
 
-### Théorème des restes chinois
+## Théorème des restes chinois
 Le théorème des restes chinois et ici nécessaire car nous savons qu'il y a une erreur de calcul dans la signature.
 
 Nous pouvons donc poser les équations suivantes pour définir l'erreur de calcul :
 
-$$ x \mod p = x' mod p $$
-$$ x \mod q \neq x' mod q $$
+$$ x \mod p = x' \mod p $$
+$$ x \mod q \neq x' \mod q $$
 
 Avec `x` la signature correcte et `x'` la signature incorrecte par exemple.
 
@@ -73,7 +107,7 @@ On peut donc déduire que :
 
 $$ (x - x') \mod p = 0 $$
 $$ (x - x') \mod q \neq 0 $$
-$$ (x - x') \mod n = k \cdot p \mod n \quad \text{avec} \quad k \in \mathbb{Z} $$
+$$ (x - x') \mod N = k \cdot p \mod N \quad \text{avec} \quad k \in \mathbb{Z} $$
 
 
 Avec ces équations, nous pouvons donc déduire `p` de la manière suivante :
@@ -86,23 +120,22 @@ $$ q = N / p $$
 Avec s' la signature incorrecte, s la signature correcte, m' le message incorrect et m le message correct. Ce cas fonctionne si nous possèdons donc une signature correcte et une signature incorrecte du même message ce qui n'est pas le cas ici.
 
 
-### PACD (Partial Approximate Common Divisors)
+## PACD (Partial Approximate Common Divisors)
 PACD est une généralisation du PGDC :
 
 $$ N_i = p \cdot q_i $$
 
-Avec `p` le facteur commun et `q_i` un diviseur commun approximatif. ???
+Avec `p` un facteur inconnu de longueur `log p`.
 
 Pour pouvoir résoudre le problème PACD, il faut que les diviseurs communs approximatifs soient suffisamment proches pour que l'algorithme LLL puisse les trouver. Nous pouvons donc essayer de poser les équations suivantes :
 
 $$ N_0 = p \cdot q_0 $$
 $$ N_1 = p \cdot q_1 + r_1 $$
 
-Avec `r_1` une erreur de calcul :
+Avec `r_1` une erreur de calcul et `r` l'espace de la fonction de hachage.
 
 $$ |r_1| < 2^{log_2(r)} $$
 
-Avec `r` l'espace de la fonction de hashage. ???
 
 Comme nous n'avons pas `N1`, nous pouvons essayer de le trouver en utilisant le théorème des restes chinois :
 
@@ -116,7 +149,7 @@ $$ N_1 = (s'^e - h(m)) \mod N = k \cdot p + h $$
 
 Avec `h` une erreur de calcul. ???
 
-### Lattice
+## Lattice
 Nous pouvons poser cette fonction qui à une petite racine mod p en `x = r_1`
 
 $$ f(x) = N_1 - x $$
@@ -134,14 +167,27 @@ $$
 B =
 \begin{bmatrix}
 -2^{2 \log r} & 2^{\log r} N_1 & 0 \\
-0 & -2^{\log r} N_1 & 0 \\
+0 & -2^{\log r} & N_1 \\
 0 & 0 & N_0
 \end{bmatrix}
 $$
 
-Avec `r` l'espace de la fonction de hashage.
+Avec `r` l'espace de la fonction de hachage.
 
-En utilisant l'algorithme LLL, nous pouvons ensuite poser : ???
+### LLL
+Pour réduire la matrice précédente, nous pouvons utiliser l'algorithme LLL pour essayer de trouver des vecteurs avec une base plus courte et plus proche de l'orthogonalité que la base d'entrée:
+- appliquer la réduction de Gram-Schmidt pour décomposer chaque vecteur
+- modifier un peu les vecteurs en les ajustant, en remplaçant certains vecteurs par des combinaisons linéaires des autres vecteurs
+- vérifie la condition de Lovász pour chaque vecteur
+
+À la fin de l'algorithme, on obtient une base plus courte et plus proche de l'orthogonalité que la base d'entrée. Si la réduction a fonctionné, nous pouvons retrouver un vecteur `v` qui peut être interprété comme les coefficients du polynôme suivant :
+
+$$ \overrightarrow{\rm v} $$
+
+$$ 𝑔(2^{\log 𝑟}𝑥) $$
+Si les coefficients sont assez petits, on peut poser les équations suivantes :
+$$ |g(y)| < p^k $$
+$$ |y| \leq 2^{\log r} $$
 
 $$ g(y) = 0 $$
 $$ y = r_1 $$
@@ -155,75 +201,12 @@ $$ p = \gcd(N_0, N_1 - r_1) $$
 
 !!!!! fonctionne uniquement si log r < log N / 4
 
+## Mesures de protections
+- **Validation des signatures** : Il vérifier que la signature effectuée ne contient pas d'erreur avant de l'envoyer et dans le cas contraire, en refaire une nouvelle.
+- **RSA dans SSH** : Éviter d'utiliser des versions vulnérables ou faibles du padding PKCS#1 V1.5 avec RSA (SHA-1).
+- **Design du protocol** :
+	- Chiffrer la communication le plus tôt possible dès que les clés cryptographiques sont disponibles pour protéger les metadata
+	- Définir une authentification par session et les lier ensemble
+	- Séparer l'authentifiaction des clés cryptographiques
 ## Bibliography
-
 **Keegan Ryan, Kaiwen He, George Arnold Sullivan, Nadia Heninger**. *Passive SSH Key Compromise via Lattices*. Cryptology ePrint Archive, Paper 2023/1711, 2023. [DOI: 10.1145/3576915.3616629](https://doi.org/10.1145/3576915.3616629), [URL: https://eprint.iacr.org/2023/1711](https://eprint.iacr.org/2023/1711).
-
-
-------------------------------------------------------------------------------------------------------------------
-
-## 1.1. Explain why is the vector (b1, b2, . . . , bm, Bα/p, B) is a linear combination of the rows of the matrix M.
-
-On peut voir que la matrice M ressemble à ceci:
-
-$$
-M = \begin{pmatrix}
-    p & 0 & \cdots & & & \\
-    0 & p & \cdots & & & \\
-    & & \ddots & & & \\
-    & & & p & & \\
-    t_1 & t_2 & \cdots & t_m & \frac{B}{p} & 0 \\
-    a_1 & a_2 & \cdots & a_m & 0 & B \\
-\end{pmatrix}
-$$
-
-En sachant que:
-
-$$ t_i * \alpha - a_i \bmod p = b_i $$
-
-On remarque que si on multiplie la dernière ligne de la matrice par \*-1 on obtient:
-
-$$ { -a_1, -a_2, \dots, -a_m, 0, -B } $$
-
-Et que si on multiplie l'avant dernière ligne par \*alpha on obtient:
-
-$$ { t_1*\alpha, t_2*\alpha, \dots, t_m*\alpha, \frac{B*\alpha}{p}, 0 } $$
-
-En faisant une combinaison linéaire des deux lignes, on obtient la ligne suivante:
-
-$$ (b_1, b_2,  \dots, b_m, \frac{- B\alpha}{p}, B) $$
-
-
-## 1.2. Explain why the vector (b1, b2, . . . , bm, Bα/p, B) is small compared to p.
-
-Car il est défini dans la consinge que:
-
-$$ B < p $$
-$$ b_i < B $$
-
-On peut également noter que B doit être beacoup plus petit que p, sinon l'algorithme LLL serait trop lent.
-
-On peut donc en déduire que ceci sera toujours plus petit que p:
-
-$$ t_i * \alpha - a_i \bmod p = b_i $$
-
-avec b_i < B qui sera donc toujours plus petit que p.
-
-On peut également noter que alpha est de toute façon plus petit que p car c'est la clé privée qui est modulo p.
-
-On peut donc en déduire que le vecteur
-$$ (b_1, b_2,  \dots, b_m, \frac{-B\alpha}{p}, B) $$
- est petit par rapport à p.
-
-## 1.3. Explain what the LLL algorithm does.
-
-L'algorithme LLL prend comme entrée une base de vecteurs. Il va ensuite essayer de trouver une base plus courte et plus proche de l'orthogonalité que la base d'entrée:
-- appliquer la réduction de Gram-Schmidt pour décomposer chaque vecteur
-- modifier un peu les vecteurs en les ajustant, en remplacant certains vecteurs par des combinaisons linéaires des autres vecteurs
-- vérifie la condition de Lovász pour chaque vecteur
-
-À la fin de l'algorithme, on obtient une base plus courte et plus proche de l'orthogonalité que la base d'entrée. Si la réduction a fonctionné, on peut trouver un vecteur qui a comme coefficients les valeurs suivantes dont la clé privée a:
-
-$$ (b_1, b_2,  \dots, b_m, \frac{-B\alpha}{p}, B) $$
-
-À noter que l'algorithme LLL va retourner un vecteur de vecteurs avec pour chaque vecteur une possibilité de réduction de la matrice de base. On peut ensuite parcourir toutes ces réductions possible de la matrice pour trouver la clé privée a dans un des vecteurs.
