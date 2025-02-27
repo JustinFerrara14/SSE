@@ -1,10 +1,9 @@
 # SSE - Passive SSH Key Compromise via Lattices - Ferrara Justin
 
 ## Prérequis pour que l'attaque réussisse
-- Posséder une partie d'un message avec sa signature valide
-- Posséder une partie d'un message avec sa signature invalide$
+- Posséder une partie d'un message signé avec sa signature invalide ???
 - Posséder la clé publique correspondante
-- L'algorithe étudié ici concerne les signature RSA PKCS v1.5
+- L'algorithe étudié ici concerne les signature RSA PKCS#1 V1.5
 - Les signatures sont réalisées en utilisant le théorème des restes chinois
 - L'erreur dans la signature provient des opérations faite dans le monde des tuples (théorème des restes chinois)
 
@@ -63,106 +62,67 @@ IKEv2 n'est pas compatible avec IKEv1 :
 - **Compromission des clés de signature** : Un attaquant obtenant la clé privée de signature pourrait usurper cette identité. Pour pouvoir faire une attaque Man-in-the-middle, il faut compromettre la clé privée des deux parties.
 - **Attaques sur l’authentification par clé pré-partagée (PSK)** : Si la PSK est faible (mot de passe faible), un attaquant peut mener une attaque par dictionnaire hors ligne et ensuite, avec la clé privé de signature de l'autre partie, faire un Man-in-the-middle complet.
 - **Attaque MITM avec EAP** : Certains modes EAP (comme **EAP-MS-CHAPv2**) permettent une attaque Man-in-the-middle complète, en attaquant le hash du mot de passe utilisé par une attaque hors ligne.
-## PKCS v1.5 padding pour signature RSA
-Le padding PKCS v1.5 est donné par :
-
+## PKCS#1 V1.5 padding pour signature RSA
+Le padding PKCS#1 V1.5 utilisé par les signatures est donné par :
 $$ 00 || 01 || FF ... FF || ASN.1 || Hash(m) $$
-
 Où :
 - `ASN.1` est un identifiant pour définir la fonction de hachage utilisée
 - `Hash(m)` est le hash du message `m`
-
-## RSA Signatures avec padding PKCS v1.5
+## Expression du padding
+Pour le padding d'un message `m` inconnu, le padding  ISO/IEC 9796-2 peut être exprimé de la manière suivante :
+$$
+a + b*x + c*y
+$$
+Avec `a`, `b` et `c` connu et `x` et `y` inconnu. Si une erreur de calcul survient `mod q` et mais que `mod p` est effectué correctement, nous pouvons en déduire l'équation suivante :
+$$
+s'^e = a + b*x + c*x \mod p
+$$
+Pour le padding PKCS#1 V1.5 d'un message, l'équation originale peut être simplifiée de la manière suivante :
+$$
+a + x
+$$
+$$ x < 2^{hash\_len} $$
+Avec `a` la partie connue du padding et `x` representant la partie inconnue du message, bornée par la taille de sortie de la fonction de hachage. En posant cette équation, il est possible de retrouver la clé privée de signature si `hash_len <= N / 4`.
+## RSA Signatures avec padding PKCS#1 V1.5
 
 La signature `s` RSA d'un message `m` sans padding est donnée par :
-
-$$ N = pq $$
-$$ \phi(N) = (p-1)(q-1) $$
-$$ d = e^{-1} \mod \phi(N) $$
 $$ s = f(m)^d \mod N $$
-
-La clé publique est donnée par :
-
-$$ (N, e) $$
-La clé privée est donnée par :
-
-$$ (N, d) $$
-
 La vérification de cette signature est donnée par :
 
 $$ f(m') = s^e \mod N $$
 $$ f(m) = f(m') $$
-
-## Théorème des restes chinois
-Le théorème des restes chinois et ici nécessaire car nous savons qu'il y a une erreur de calcul dans la signature.
-
-Nous pouvons donc poser les équations suivantes pour définir l'erreur de calcul :
-
-$$ x \mod p = x' \mod p $$
-$$ x \mod q \neq x' \mod q $$
-
-Avec `x` la signature correcte et `x'` la signature incorrecte par exemple.
-
-On peut donc déduire que :
-
-$$ (x - x') \mod p = 0 $$
-$$ (x - x') \mod q \neq 0 $$
-$$ (x - x') \mod N = k \cdot p \mod N \quad \text{avec} \quad k \in \mathbb{Z} $$
-
-
-Avec ces équations, nous pouvons donc déduire `p` de la manière suivante :
-
-$$ p = \gcd(N, s'-s) $$
-$$ p = \gcd(N, m'-m) $$
-$$ p = \gcd(N, s'^e - m) $$
-$$ q = N / p $$
-
-Avec s' la signature incorrecte, s la signature correcte, m' le message incorrect et m le message correct. Ce cas fonctionne si nous possèdons donc une signature correcte et une signature incorrecte du même message ce qui n'est pas le cas ici.
-
-
+Avec `f(m)` une fonction de hachage définie par le padding.
+> À noter que dans ce cas la signature doit être faite en utilisant le théorème des restes chinois.
 ## PACD (Partial Approximate Common Divisors)
 PACD est une généralisation du PGDC :
-
 $$ N_i = p \cdot q_i $$
-
 Avec `p` un facteur inconnu de longueur `log p`.
 
 Pour pouvoir résoudre le problème PACD, il faut que les diviseurs communs approximatifs soient suffisamment proches pour que l'algorithme LLL puisse les trouver. Nous pouvons donc essayer de poser les équations suivantes :
-
-$$ N_0 = p \cdot q_0 $$
-$$ N_1 = p \cdot q_1 + r_1 $$
-
+$$ N_0 = p_0 \cdot q_0 + r_0$$
+$$ N_1 = p_1 \cdot q_1 + r_1 $$
 Avec `r_1` une erreur de calcul et `r` l'espace de la fonction de hachage.
-
 $$ |r_1| < 2^{log_2(r)} $$
-
-
-Comme nous n'avons pas `N1`, nous pouvons essayer de le trouver en utilisant le théorème des restes chinois :
-
-$$ (m' - m) \mod N = k \cdot p$$
-$$ (h(m') - h(m)) \mod N = k \cdot p$$
-
+Comme nous n'avons pas `N1`, nous pouvons essayer de le trouver en utilisant les équations qui définissent la padding PKCS#1 V1.5. ???
+$$
+s'^e = m' = a + x \mod p
+$$
+$$
+s'^e \neq a + x \mod q
+$$
+$$
+s'^e = k*p + a + x \mod N
+$$
+$$
+(s'^e - a \mod N) = k*p + x \mod N
+$$
+$$ x < 2^{r} $$
 Nous pouvons donc déduire les équations suivantes :
-
 $$ N_0 = p \cdot q_0 $$
-$$ N_1 = (s'^e - h(m)) \mod N = k \cdot p + h $$
-
-Avec `h` une erreur de calcul. ???
-
+$$ N_1 = (s'^e - a \mod N) = k \cdot p + h $$
+Avec `h` une valeur inconnue et `a` la partie connue du padding PKCS#1 V1.5. 
 ## Lattice
-Nous pouvons poser cette fonction qui à une petite racine mod p en `x = r_1`
-
-$$ f(x) = N_1 - x $$
-
-On peut ensuite en dériver des équations en utilisant la formule suivante :
-
-$$ Q_j(x) = N^{\max(k - j, 0)} f(x)^{\min(j, k)} x^{\max(j - k, 0)} $$
-$$ 0 \leq j \leq k $$
-
-Avec `(t, k) = (2, 1)` pour notre cas. ??? pourquoi dériver des équations ???
-
 Nous pouvons ensuite remplir la matrice suivante :
-
 $$
 B =
 \begin{bmatrix}
@@ -171,9 +131,7 @@ B =
 0 & 0 & N_0
 \end{bmatrix}
 $$
-
 Avec `r` l'espace de la fonction de hachage.
-
 ### LLL
 Pour réduire la matrice précédente, nous pouvons utiliser l'algorithme LLL pour essayer de trouver des vecteurs avec une base plus courte et plus proche de l'orthogonalité que la base d'entrée:
 - appliquer la réduction de Gram-Schmidt pour décomposer chaque vecteur
@@ -181,9 +139,7 @@ Pour réduire la matrice précédente, nous pouvons utiliser l'algorithme LLL po
 - vérifie la condition de Lovász pour chaque vecteur
 
 À la fin de l'algorithme, on obtient une base plus courte et plus proche de l'orthogonalité que la base d'entrée. Si la réduction a fonctionné, nous pouvons retrouver un vecteur `v` qui peut être interprété comme les coefficients du polynôme suivant :
-
 $$ \overrightarrow{\rm v} $$
-
 $$ 𝑔(2^{\log 𝑟}𝑥) $$
 Si les coefficients sont assez petits, on peut poser les équations suivantes :
 $$ |g(y)| < p^k $$
@@ -191,16 +147,11 @@ $$ |y| \leq 2^{\log r} $$
 
 $$ g(y) = 0 $$
 $$ y = r_1 $$
-
 Avec `r_1` une petite racine mod p.
 
 Comme nous connaissons `r_1`, nous pouvons donc déduire `p`:
-
 $$ p = \gcd(N_0, N_1 - r_1) $$
-
-
-!!!!! fonctionne uniquement si log r < log N / 4
-
+> Note : LLL trouvera une solutions seulement si `hash_len * 4 >= N`.
 ## Mesures de protections
 - **Validation des signatures** : Il vérifier que la signature effectuée ne contient pas d'erreur avant de l'envoyer et dans le cas contraire, en refaire une nouvelle.
 - **RSA dans SSH** : Éviter d'utiliser des versions vulnérables ou faibles du padding PKCS#1 V1.5 avec RSA (SHA-1).
