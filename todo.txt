@@ -6,3 +6,10 @@ que pour du pkcs, pas rsa oaep, pas pour EC
 
 
 rajouter intro, qui utilise rsa pkcs, quel device, reste chinois, problème des signatures
+
+
+changer digression
+
+remove liste
+
+faire demo
