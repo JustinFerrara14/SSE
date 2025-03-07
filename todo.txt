@@ -13,3 +13,8 @@ changer digression
 remove liste
 
 faire demo
+
+
+
+
+sage -n jupyter # pour ouvrir jupyter avec sage

@@ -76,8 +76,7 @@ Avec `a` la partie connue du padding et `x` representant la partie inconnue du m
 
 La signature `s` RSA d'un message `m` sans padding est donnée par :
 $$ s = f(m)^d \mod N $$
-La vérification de cette signature est donnée par :
-
+La vérification de cette signature est donnée par : ???
 $$ f(m') = s^e \mod N $$
 $$ f(m) = f(m') $$
 Avec `f(m)` une fonction de hachage définie par le padding.
