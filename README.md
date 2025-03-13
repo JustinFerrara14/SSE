@@ -6,7 +6,7 @@ Si une erreur de calcul apparait dans un signature digitale cela peut avoir des 
 
 Les erreurs pouvant arriver lors du calcul d'une signature découler de plusieurs facteurs. Une mauvaise implémentation, une erreur de calcul provoquée par une side chanel attack, etc. Selon l'article, des routeurs ou firewall des marques comme Zyxel, SSHD, Mocana ou Cisco peuvent générer des signatures avec des erreurs (Keegan Ryan; Kaiwen He; George Arnold Sullivan; Nadia Heninger, 2023). Cependant, la plupart des erreurs on été corrigées après mise à jour du software.
 ## Prérequis pour que l'attaque réussisse
-- Posséder une partie d'un message signé avec sa signature invalide ???
+- Posséder une signature invalide d'un message (posséder le message n'est pas un nécessaire)
 - Posséder la clé publique correspondante
 - L'algorithe étudié ici concerne les signature RSA PKCS#1 V1.5
 - Les signatures sont réalisées en utilisant le théorème des restes chinois
@@ -109,6 +109,7 @@ Nous pouvons donc déduire les équations suivantes :
 $$ N_0 = p \cdot q_0 $$
 $$ N_1 = (s'^e - a \mod N) = k \cdot p + h $$
 Avec `h` une valeur inconnue et `a` la partie connue du padding PKCS#1 V1.5. 
+???? pourquoi pas mod n aussi sur s^e ????? todo
 ## Lattice
 Nous pouvons ensuite remplir la matrice suivante :
 $$
@@ -148,6 +149,7 @@ Je peux donc déjà exclure les algorithmes suivants:
 - RSA PSS
 ## Mesures de protections
 - **Validation des signatures** : Il faut vérifier que la signature effectuée ne contient pas d'erreur avant de l'envoyer et dans le cas contraire, en refaire une nouvelle.
+- Ne pas utiliser un padding déterministe et donc utiliser un algorithme de signature sûr, par exemple RSA-PSS.
 - **RSA dans SSH** : Éviter d'utiliser des versions vulnérables ou faibles du padding PKCS#1 V1.5 avec RSA (SHA-1).
 - **Design du protocol** : ???
 	- Chiffrer la communication le plus tôt possible dès que les clés cryptographiques sont disponibles pour protéger les metadata
