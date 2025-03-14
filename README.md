@@ -1,6 +1,6 @@
 # SSE - Passive SSH Key Compromise via Lattices - Ferrara Justin
 ## Signatures digitales
-Dans ce document, je traiterais uniquement des signatures RSA PKCS#1 V1.5. Ces signatures qui sont pourtant vielles et mises comme legacy (Duc Alexandre, 2024) sont encore relativement répandue. Selon l'article, cela représente encore environ un tiers des signatures dans le cadre de la collecte d'informations effectuée (Keegan Ryan; Kaiwen He; George Arnold Sullivan; Nadia Heninger, 2023).
+Dans ce document, je traiterais uniquement des signatures RSA PKCS#1 V1.5. Ces signatures qui sont pourtant vielles et dépréciées (Duc Alexandre, 2024) sont encore relativement répandue. Selon l'article, cela représente encore environ un tiers des signatures dans le cadre de la collecte d'informations effectuée (Keegan Ryan; Kaiwen He; George Arnold Sullivan; Nadia Heninger, 2023).
 ### Erreurs dans les signatures digitales
 Si une erreur de calcul apparait dans un signature digitale cela peut avoir des conséquences graves sur la sécurité de la construction, allant notamment jusqu'à la divulgation de la clé privée.
 
@@ -10,18 +10,18 @@ Les erreurs pouvant arriver lors du calcul d'une signature découler de plusieur
 - Posséder la clé publique correspondante
 - L'algorithe étudié ici concerne les signature RSA PKCS#1 V1.5
 - Les signatures sont réalisées en utilisant le théorème des restes chinois
-- L'erreur dans la signature provient des opérations faite dans le monde des tuples (théorème des restes chinois)
+- L'erreur dans la signature provient d'une des opérations faite dans le monde des tuples (théorème des restes chinois)
 
-> Pour faire cette attaque sur TLS, il faut faire une écoute passive sur TLS 1.2 et une attaque active sur TLS 1.3.
+> Pour faire cette attaque sur TLS, il faut faire une écoute passive sur TLS 1.2 et une attaque active sur TLS 1.3. ??? changer position
 ## SSH
 ### Authentification et échange de clés
 #### Authentification du serveur
-Les serveurs SSH sont identifiés par leurs clés publiques. L'échange commence par une négociation de l'alogrithme chiffrement suivie d'un échange de clés Diffie-Hellman. Le serveur s'authentifie en signant le session identifier avec sa clé privée, vérifié ensuite par le client. Le session identifier contient le D-H, l'ID du client et l'ID du serveur.
+Les serveurs SSH sont identifiés par leurs clés publiques. L'échange commence par une négociation de l'alogrithme chiffrement suivie d'un échange de clés Diffie-Hellman. Le serveur s'authentifie en signant le session identifier avec sa clé privée, vérifié ensuite par le client. Le session identifier contient le D-H, les messages échangés pour les algorithmes, l'ID du client et l'ID du serveur.
 #### Authentification du client
 Elle se déroule après l'établissement du canal chiffré. Il y a deux méthodes possibles, par mot de passe ou par clé publique. Pour l'authentification par mot de passe, le mot de passe est envoyé en clair dans le canal chiffré. Pour l'authentification par clé publique, le client signe un identifiant de session avec sa clé privée.
 ### Algorithmes cryptographiques
 Pour l'échange des clés, différents algorithme sont à choix notamment Diffie-Hellman, Elliptic Curve Diffie-Hellman (ECDH), RSA.
-Pour les signatures, , différents algorithme sont à choix notamment DSA, RSA, ECDSA, Ed25519.
+Pour les signatures, différents algorithme sont à choix notamment DSA, RSA, ECDSA, Ed25519.
 
 >OpenSSH 8.8 (septembre 2021) désactive par défaut `ssh-rsa` (SHA-1) mais supporte `rsa-sha2-256` et `rsa-sha2-512`. ?????
 ### Sécurité et attaques possibles
@@ -36,9 +36,9 @@ Lors d'une authentification par mot de passe, un attaquant peut effectuer un Man
 ## IPsec
 IPsec est un ensemble de protocoles (RFC 2408, 2409, 7296) visant à garantir la confidentialité, l'intégrité des données et l'authentification des sources des paquets IP. Il est beaucoup utilisé par les VPN et repose sur le protocole Internet Key Exchange (IKE) pour négocier les algorithmes utilisés, définir comment dériver les clés, etc.
 ### IKE : Versions et Fonctionnement
-IKE existe en deux versions : IKEv1 et IKEv2. IKE permet l'établissement d'une Security Association (SA) et l'authentification mutuelle. Une SA permet le choix des cipher suites et l'échange initial de clés Diffie-Hellman. L'authentification mutuelle est effectuée entre l'initiateur et le répondeur via différentes méthodes (signatures, clés pré-partagées, etc.).
+IKE existe en deux versions : IKEv1 et IKEv2. IKE permet l'établissement d'une Security Association (SA) et l'authentification mutuelle. Une SA permet le choix des algorithmes et l'échange initial de clés Diffie-Hellman. L'authentification mutuelle est effectuée entre l'initiateur et le répondeur via différentes méthodes (signatures, clés pré-partagées, etc.).
 ### IKEv1
-IKEv1 prend en charge trois modes d'authentification, les signatures numériques, le chiffrement de clé publique ou des clés pré-partagée (PSK). Il y a également deux modes de communication, le Main Mode qui est le plus sécurisé, toutes les communications sont chiffrées après l'échange initial et le mode agressif, où l'échange initial réduit mais moins sécurisé (les signatures sont envoyées en clair).
+IKEv1 prend en charge trois modes d'authentification, les signatures numériques, le chiffrement par clé publique ou des clés pré-partagée (PSK). Il y a également deux modes de communication, le Main Mode qui est le plus sécurisé, toutes les communications sont chiffrées après l'échange initial et le mode agressif, où l'échange initial réduit mais moins sécurisé (les signatures sont envoyées en clair).
 #### Vulnérabilités dans IKEv1 ???
 - **Attaque passive sur Aggressive Mode** : Un attaquant peut capturer une signature envoyée en clair en écoutant passivement la communication.
 - **Format non standard de signature RSA** : RFC 2409 impose une variation du format PKCS#1 v1.5, supprimant l'OID du hachage car il est inclus dans la SA.
@@ -130,7 +130,7 @@ Pour réduire la matrice précédente, nous pouvons utiliser l'algorithme LLL po
 À la fin de l'algorithme, on obtient une base plus courte et plus proche de l'orthogonalité que la base d'entrée. Si la réduction a fonctionné, nous pouvons retrouver un vecteur `v` qui peut être interprété comme les coefficients du polynôme suivant :
 $$ \overrightarrow{\rm v} $$
 $$ 𝑔(2^{\log 𝑟}𝑥) $$
-Si les coefficients sont assez petits, on peut poser les équations suivantes :
+Si les coefficients sont assez petits, on peut poser les équations suivantes : ???
 $$ |g(y)| < p^k $$
 $$ |y| \leq 2^{\log r} $$
 
