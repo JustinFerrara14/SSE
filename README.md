@@ -1,12 +1,12 @@
 # SSE - Passive SSH Key Compromise via Lattices - Ferrara Justin
-Les signatures RSA PKCS#1 v1.5 sont considérées comme anciennes et obsolètes (Duc Alexandre, 2024). Cependant, elles restent largement utilisées dans des protocoles tels que SSH et IPsec (Keegan Ryan, Kaiwen He, George Arnold Sullivan, Nadia Heninger, 2023). Leur utilisation persiste notamment parce qu'elles signent un message qui est ensuite transmis de manière chiffrée sur le canal, ce qui rend impossible une attaque directe par calcul du PGCD en cas d’erreur dans la signature.
+Les signatures RSA PKCS#1 v1.5 sont considérées comme anciennes et obsolètes (Duc Alexandre, 2024). Cependant, elles restent largement utilisées dans des protocoles tels que SSH et IPsec (Keegan Ryan, Kaiwen He, George Arnold Sullivan, Nadia Heninger, 2023). Leur utilisation persiste notamment parce qu'elles signent un message qui n'est pas transmis directement sur le canal, ce qui rend impossible une attaque directe par calcul du PGCD en cas d’erreur dans la signature.
 
-Ce document, largement inspiré des travaux de Keegan Ryan, Kaiwen He, George Arnold Sullivan et Nadia Heninger (2023), présente une attaque exploitant une erreur de calcul survenant lors de l'utilisation du théorème des restes chinois (CRT) pour la signature RSA PKCS#1 v1.5. Cette faille permet de récupérer la clé privée, même si le message signé reste inconnu de l'adversaire. L'attaque repose sur un modèle d'adversaire passif capable d'observer une seule signature erronée.
+Ce document, largement inspiré des travaux de Keegan Ryan, Kaiwen He, George Arnold Sullivan et Nadia Heninger (2023), présente une attaque exploitant une erreur de calcul survenant lors de l'utilisation du théorème des restes chinois (CRT) pour la signature RSA PKCS#1 v1.5. Cette faille permet de récupérer la clé privée, même si le message signé reste inconnu de l'adversaire, ce qui est le cas dans des protocoles comme SSH ou IPsec. L'attaque repose sur un modèle d'adversaire passif capable d'observer une seule signature erronée.
 
 Comme nous pouvons le voir sur le graphique ci-dessous, les signatures RSA représentent encore un tiers environ des signatures SSH collectées par Keegan Ryan, Kaiwen He, George Arnold Sullivan et Nadia Heninger (2023).
 <img src="./img/signType.png" alt="sign types" style="display: block; margin: auto;">
 ### Erreurs dans les signatures digitales
-Les erreurs pouvant arriver lors du calcul d'une signature peuvent découler de plusieurs facteurs, soit d'une mauvaise implémentation, une erreur de calcul provoquée par une attaque par canal auxiliaire, etc. Selon l'article, des routeurs ou pare-feu des marques comme Zyxel, SSHD, Mocana ou Cisco peuvent générer de fausses signatures (Keegan Ryan; Kaiwen He; George Arnold Sullivan; Nadia Heninger, 2023). Cependant, la plupart des erreurs ont été corrigées après mise à jour du logiciel.
+Les erreurs pouvant arriver lors du calcul d'une signature peuvent découler de plusieurs facteurs, par exemple d'une mauvaise implémentation, d'une erreur de calcul provoquée par une attaque par canal auxiliaire, etc. Selon l'article, des routeurs ou pare-feu des marques comme Zyxel, SSHD, Mocana ou Cisco peuvent générer de fausses signatures (Keegan Ryan; Kaiwen He; George Arnold Sullivan; Nadia Heninger, 2023). Cependant, la plupart des erreurs ont été corrigées après mise à jour du logiciel.
 
 Comme nous pouvons le voir sur le graphique ci-dessous, les erreurs dans les signatures RSA représentent encore environ 5% des signatures SSH collectées par Keegan Ryan, Kaiwen He, George Arnold Sullivan et Nadia Heninger (2023).
 <img src="./img/errorInSignature.png" alt="sign types" style="display: block; margin: auto;">
@@ -28,7 +28,7 @@ Pour les signatures, différents algorithmes sont à choix notamment DSA, RSA, E
 ### Conséquences d'une compromission de clés de signatures
 Une compromission des clés de signatures ne permet pas de déchiffrer les connexions de manière passive mais peut permettre une attaque active (Man-in-the-middle). Elle peut permettre également à un attaquant d'usurper l'identité du serveur et établir une connexion chiffrée avec le client pour obtenir son mot de passe par exemple.
 ### Exploitation des méthodes d'authentification
-Lors d'une authentification par mot de passe, un attaquant peut effectuer un Man-in-the-middle en usurpant l'identité du serveur pour intercepter et relayer les identifiants et mot de passe du client. Lors d'une authentification par clé publique, cela n'est pas possible. Pour faire un Man-in-the-middle complet il faudrait aussi compromettre la clé de signature du client également. L'attaquant peut cependant connaître les commandes que le client aurait envoyé au serveur.
+Lors d'une authentification par mot de passe, un attaquant peut effectuer un Man-in-the-middle en usurpant l'identité du serveur pour intercepter et relayer les identifiants et mot de passe du client. Lors d'une authentification par clé publique, cela n'est pas possible. Pour faire un Man-in-the-middle complet il faudrait également compromettre la clé de signature du client. L'attaquant peut cependant connaître les commandes que le client aurait envoyé au serveur.
 ## IPsec
 IPsec est un ensemble de protocoles (RFC 2408, 2409, 7296) visant à garantir la confidentialité, l'intégrité des données et l'authentification des sources des paquets IP. Il est largement utilisé par les VPN et repose sur le protocole Internet Key Exchange (IKE) pour négocier les algorithmes utilisés, définir comment dériver les clés, etc.
 ### IKE : Versions et fonctionnement
@@ -48,7 +48,7 @@ IKEv2 n'est pas compatible avec IKEv1 et introduit certaines modifications notam
 #### Sécurité et attaques possibles
 En cas d'une compromission d'une clé de signature, un attaquant peut usurper l'identité du détenteur de la signature. Pour pouvoir faire une attaque Man-in-the-middle, il faut compromettre les clé privées des deux parties.
 
-Pour compromettre la clé de la deuxième partie nous pouvons utiliser d'autres attaques notamment en cas d'utilisation de clés pré-partagées (PSK) pour l’authentification, un attaquant peut, si la PSK est faible (mot de passe faible), mener une attaque par dictionnaire hors ligne. Ou, par exemple, avec certains modes EAP (comme EAP-MS-CHAPv2) qui utilisent des méthodes de chiffrement faibles. ???
+Pour compromettre la clé de la deuxième partie nous pouvons utiliser d'autres attaques notamment en cas d'utilisation de clés pré-partagées (PSK) pour l’authentification, un attaquant peut, si la PSK est faible (mot de passe faible), mener une attaque par dictionnaire hors ligne. Ou, par exemple, avec certains modes EAP (comme EAP-MS-CHAPv2) qui utilisent des protocoles dont la sécurité est compromise par d'autres attaques.
 ## PKCS#1 V1.5 padding pour signature RSA
 > Note : toutes les formules mathématiques suivantes sont dérivées de l'article Keegan Ryan, Kaiwen He, George Arnold Sullivan, Nadia Heninger, 2023.
 
@@ -84,8 +84,8 @@ Que nous pouvons réécrire ainsi:
 $$ N = p \cdot q_0 $$
 $$ N_1 = p_1 \cdot q_1 + r_1 $$
 
-Avec `r_1` une erreur de calcul et `r` l'espace de la fonction de hachage.
-$$ |r_1| < 2^{log_2(r)} $$
+Avec `r_1` une erreur de calcul et `h` l'espace de la fonction de hachage (par exemple pour SHA-256 alors h = 2^256).
+$$ |r_1| < 2^{log_2(h)} $$
 Comme nous n'avons pas `N1`, nous pouvons essayer de le trouver en utilisant les équations qui définissent la padding PKCS#1 V1.5.
 $$
 s'^e = m' = a + x \mod N
@@ -104,8 +104,8 @@ Nous pouvons ensuite remplir la matrice suivante pour construire la lattice :
 $$
 B =
 \begin{bmatrix}
--2^{2 \log r} & 2^{\log r} N_1 & 0 \\
-0 & -2^{\log r} & N_1 \\
+-2^{2 (\log (h) - 1)} & 2^{\log (h) - 1} N_1 & 0 \\
+0 & -2^{\log (h) - 1} & N_1 \\
 0 & 0 & N_0
 \end{bmatrix}
 $$
@@ -129,8 +129,8 @@ $$
 
 Si la réduction a fonctionné, nous pouvons retrouver un vecteur `v` qui peut être interprété comme les coefficients du polynôme suivant :
 $$ \overrightarrow{\rm v} $$
-$$ 𝑔(2^{\log (r - 1)}𝑥) $$
-$$ g(x) = a_i * \frac{x^2}{2^{2 * log(r - 1)}} + b_i * \frac{x}{2^{log(r - 1)}} + c_i $$
+$$ 𝑔(2^{\log (h - 1)}𝑥) $$
+$$ g(x) = a_i * \frac{x^2}{2^{2 * log(h - 1)}} + b_i * \frac{x}{2^{log(h - 1)}} + c_i $$
 Si les coefficients sont assez petits, on peut poser les équations suivantes :
 $$ g(y) = 0 $$
 $$ y = r_1 $$
@@ -138,7 +138,7 @@ Avec `r_1` une petite racine mod p de `g(x)`.
 
 Comme nous connaissons `r_1`, nous pouvons donc déduire `p`:
 $$ p = \gcd(N, N_1 - r_1) $$
-> Note : LLL trouvera une solution seulement si `hash_len * 4 <= log(N)`.
+> Note : LLL trouvera une solution seulement si `log(h) <= log(N) / 4`.
 ## Digression de l'attaque
 L'attaque est possible si dans le message représentant le message original, il y a une partie connue et une partie inconnue avec une erreur dans la signature. Je peux donc déjà exclure les algorithmes suivants:
 - Tous les algorithmes de signatures basés sur les courbes elliptiques
